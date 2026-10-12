@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portal del Propietario — MeGa Consultora</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+
+  :root {
+    --ink: #1a1a2e;
+    --ink2: #2d2d4e;
+    --cream: #f5f0e8;
+    --accent: #c8483a;
+    --green: #2d7a4f;
+    --gold: #b8860b;
+    --border: #ddd8ce;
+    --shadow: 0 2px 12px rgba(26,26,46,0.08);
+    --shadow-lg: 0 8px 32px rgba(26,26,46,0.14);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--ink); min-height:100vh; }
+
+  /* LOGIN */
+  #login-screen {
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background:var(--ink); padding:1rem; position:fixed; inset:0; z-index:1000;
+  }
+  .login-card {
+    background:white; border-radius:20px; padding:2.5rem;
+    width:100%; max-width:400px; box-shadow:0 20px 60px rgba(0,0,0,0.4);
+  }
+  .login-logo { text-align:center; margin-bottom:2rem; }
+  .login-logo-dot { width:10px; height:10px; background:var(--accent); border-radius:50%; display:inline-block; margin-right:6px; }
+  .login-logo-title { font-family:'DM Serif Display',serif; font-size:1.6rem; color:var(--ink); }
+  .login-logo-sub { font-size:0.82rem; color:#999; margin-top:6px; }
+  .login-tabs { display:flex; background:var(--cream); border-radius:10px; padding:4px; margin-bottom:1.5rem; }
+  .login-tab { flex:1; padding:0.5rem; border:none; background:none; border-radius:8px; cursor:pointer; font-family:'DM Sans',sans-serif; font-size:0.85rem; font-weight:500; color:#888; transition:all 0.2s; }
+  .login-tab.active { background:white; color:var(--ink); box-shadow:0 1px 4px rgba(0,0,0,0.1); }
+  .login-form { display:flex; flex-direction:column; gap:1rem; }
+  .login-form input { padding:0.75rem 1rem; border:1.5px solid var(--border); border-radius:10px; font-family:'DM Sans',sans-serif; font-size:0.95rem; color:var(--ink); transition:border-color 0.2s; width:100%; }
+  .login-form input:focus { outline:none; border-color:var(--accent); }
+  .pass-wrap { position:relative; width:100%; }
+  .pass-wrap input { padding-right:2.6rem !important; }
+  .pass-toggle { position:absolute; right:0.75rem; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; padding:2px; color:#999; display:flex; align-items:center; }
+  .pass-toggle:hover { color:var(--ink); }
+  .login-btn { padding:0.8rem; background:var(--accent); color:white; border:none; border-radius:10px; font-family:'DM Sans',sans-serif; font-size:1rem; font-weight:600; cursor:pointer; margin-top:0.5rem; width:100%; }
+  .login-btn:hover { background:#a83828; }
+  .login-msg { text-align:center; font-size:0.82rem; padding:0.75rem; border-radius:8px; margin-top:0.5rem; }
+  .login-msg.error { background:#f8d7da; color:#721c24; }
+  .login-msg.success { background:#d4edda; color:#155724; }
+  .login-msg.warn { background:#fff3cd; color:#856404; }
+
+  /* HEADER */
+  header {
+    background:var(--ink); color:white;
+    padding:0 1.5rem; display:flex; align-items:center;
+    justify-content:space-between; min-height:60px;
+    position:sticky; top:0; z-index:100;
+    box-shadow:0 2px 16px rgba(0,0,0,0.25);
+  }
+  .logo { font-family:'DM Serif Display',serif; font-size:1.2rem; display:flex; align-items:center; gap:8px; white-space:nowrap; }
+  .logo-dot { width:7px; height:7px; background:var(--accent); border-radius:50%; }
+  .header-right { display:flex; align-items:center; gap:0.75rem; font-size:0.82rem; }
+  .salir-btn { background:rgba(255,255,255,0.12); border:none; color:white; padding:5px 12px; border-radius:6px; cursor:pointer; font-family:'DM Sans',sans-serif; font-size:0.82rem; white-space:nowrap; }
+  @media (max-width: 480px) {
+    header { padding:0 0.85rem; }
+    .logo { font-size:0.95rem; gap:5px; }
+    .header-right { gap:0.4rem; }
+    #user-name { display:none; }
+    .salir-btn { padding:5px 9px; }
+    #btn-notif .notif-text { display:none; }
+  }
+
+  /* MAIN */
+  main { padding:1.5rem; max-width:900px; margin:0 auto; }
+  /* La tabla de pagos tiene 12 columnas — en una notebook con espacio de
+     sobra, el tope de 900px la obligaba a scrollear horizontal igual, y
+     muchos inquilinos nunca descubrían que había que desplazarse para ver
+     la columna del adjunto. Se amplía el ancho disponible solo en pantallas
+     con lugar real para aprovecharlo (debajo de esto, las cards de
+     contrato/bienvenida siguen viéndose bien en 900px, no hace falta más). */
+  @media (min-width: 960px) { main { max-width:1280px; } }
+
+  /* CARDS */
+  .welcome-card {
+    background:var(--ink2); color:white; border-radius:16px;
+    padding:1.5rem 2rem; margin-bottom:1.5rem;
+    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;
+  }
+  .welcome-title { font-family:'DM Serif Display',serif; font-size:1.4rem; }
+  .welcome-sub { font-size:0.82rem; opacity:0.7; margin-top:4px; }
+
+  .stats-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:1rem; margin-bottom:1.5rem; }
+  .stat-card { background:white; border-radius:12px; padding:1.2rem 1.4rem; box-shadow:var(--shadow); border-left:3px solid var(--border); }
+  .stat-card.accent { border-left-color:var(--accent); }
+  .stat-card.green { border-left-color:var(--green); }
+  .stat-card.gold { border-left-color:var(--gold); }
+  .stat-card.purple { border-left-color:#9b59b6; }
+  .stat-label { font-size:0.7rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#888; margin-bottom:6px; }
+  .stat-val { font-family:'DM Serif Display',serif; font-size:1.6rem; color:var(--ink); line-height:1; }
+  .stat-sub { font-size:0.72rem; color:#999; margin-top:4px; }
+
+  /* CONTRATO CARD */
+  .contrato-card {
+    background:white; border-radius:14px; box-shadow:var(--shadow);
+    margin-bottom:1.5rem; overflow:hidden;
+  }
+  .contrato-header {
+    background:var(--ink); color:white; padding:1rem 1.4rem;
+    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.5rem;
+  }
+  .contrato-titulo { font-family:'DM Serif Display',serif; font-size:1.1rem; }
+  .contrato-body { padding:1.2rem 1.4rem; }
+  .contrato-info { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:0.75rem; margin-bottom:1.2rem; }
+  .info-item label { font-size:0.68rem; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:#999; display:block; margin-bottom:2px; }
+  .info-item span { font-size:0.88rem; color:var(--ink); font-weight:500; }
+
+  /* PAGOS TABLE */
+  .section-title { font-family:'DM Serif Display',serif; font-size:1rem; margin-bottom:0.75rem; padding-bottom:0.5rem; border-bottom:1.5px solid var(--border); }
+  .table-wrap { overflow-x:auto; border-radius:10px; border:1px solid var(--border); }
+  table { width:100%; border-collapse:collapse; font-size:0.83rem; }
+  thead { background:var(--ink); color:white; }
+  th { padding:0.6rem 0.55rem; text-align:left; font-size:0.68rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; }
+  th.r, td.r { text-align:right; white-space:nowrap; }
+  tbody tr { border-bottom:1px solid var(--border); transition:background 0.15s; }
+  tbody tr:last-child { border-bottom:none; }
+  tbody tr:hover { background:#faf7f2; }
+  td { padding:0.6rem 0.55rem; vertical-align:middle; }
+  tr.row-vencido td { background:#fff0f0; color:#721c24; }
+  tr.row-pagado td { background:#f0fff4; }
+  tr.row-futuro td { background:#f0f4ff; color:#555; }
+  tr.row-parcial td { background:#fff8e1; }
+
+  .badge { display:inline-block; padding:2px 8px; border-radius:100px; font-size:0.68rem; font-weight:600; }
+  .badge-green { background:#d4edda; color:#155724; }
+  .badge-red { background:#f8d7da; color:#721c24; }
+  .badge-yellow { background:#fff3cd; color:#856404; }
+  .badge-blue { background:#cce5ff; color:#004085; }
+  .badge-gray { background:#e9ecef; color:#495057; }
+
+  .saldo-pend { color:var(--accent); font-weight:700; }
+  .saldo-ok { color:var(--green); font-weight:600; }
+
+  /* ALERTA */
+  .alerta-pend {
+    background:#fff0f0; border:1.5px solid #f8d7da; border-radius:10px;
+    padding:1rem 1.2rem; margin-bottom:1rem;
+    display:flex; align-items:center; gap:0.75rem;
+  }
+  .alerta-pend .icon { font-size:1.4rem; }
+  .alerta-pend p { font-size:0.85rem; color:#721c24; }
+  .alerta-pend strong { font-size:1rem; }
+
+  /* TOAST */
+  .toast { position:fixed; bottom:2rem; right:2rem; background:var(--ink); color:white; padding:0.8rem 1.4rem; border-radius:8px; font-size:0.85rem; z-index:999; animation:toastIn 0.3s ease; box-shadow:var(--shadow-lg); }
+  .toast.success { border-left:3px solid var(--green); }
+  .toast.error { border-left:3px solid var(--accent); }
+  @keyframes toastIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+
+  .loading { text-align:center; padding:3rem; color:#aaa; font-style:italic; }
+  .empty { text-align:center; padding:2rem; color:#aaa; }
+
+  @media(max-width:600px) { main { padding:1rem; } .welcome-card { padding:1rem; } }
+
+  /* PAGOS — tarjetas en mobile (la tabla tiene demasiadas columnas para
+     entrar en una pantalla chica; con scroll horizontal, el botón de
+     adjunto —última columna— quedaba invisible para buena parte de los
+     inquilinos, que nunca llegaban a descubrirlo) */
+  .pagos-cards { display:none; flex-direction:column; gap:0.7rem; }
+  .pago-card { border:1px solid var(--border); border-radius:12px; padding:0.9rem 1rem; background:white; }
+  .pago-card.row-vencido { background:#fff0f0; border-color:#f3c6c6; }
+  .pago-card.row-pagado { background:#f6fbf7; }
+  .pago-card.row-futuro { background:#f4f7ff; }
+  .pago-card.row-parcial { background:#fffaf0; border-color:#f0dca0; }
+  .pago-card-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:0.6rem; }
+  .pago-card-mes { font-family:'DM Serif Display',serif; font-size:1.05rem; }
+  .pago-card-totales { display:flex; gap:1.5rem; margin-bottom:0.5rem; }
+  .pago-card-totales .lbl { font-size:0.66rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:#999; margin-bottom:2px; }
+  .pago-card-totales .val { font-size:1.05rem; font-weight:600; }
+  .pago-card-detalle { font-size:0.78rem; color:#777; line-height:1.5; margin-bottom:0.7rem; }
+  .pago-card-adjunto { display:flex; align-items:center; justify-content:center; gap:6px; width:100%; background:var(--ink); color:white; border:none; border-radius:8px; padding:0.6rem; font-size:0.85rem; font-family:'DM Sans',sans-serif; cursor:pointer; }
+  @media(max-width:600px) {
+    .table-wrap { display:none; }
+    .pagos-cards { display:flex; }
+  }
+
+
+  /* PORTAL PROPIETARIOS */
+  @media (min-width: 960px) { main { max-width:1100px; } }
+  .stats-row.cuatro { grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); }
+  .stats-row.cuatro .stat-val { font-size:1.4rem; word-break:break-word; }
+  @media (max-width: 600px) {
+    .stats-row.cuatro { grid-template-columns:1fr 1fr; gap:0.6rem; }
+    .stats-row.cuatro .stat-card { padding:0.8rem 0.9rem; }
+    .stats-row.cuatro .stat-card.big { grid-column:1 / -1; }
+    .stats-row.cuatro .stat-val { font-size:1.05rem; }
+    .stats-row.cuatro .stat-card.big .stat-val { font-size:1.5rem; }
+  }
+  .stat-card.big { background:var(--ink2); border-left-color:var(--green); }
+  .stat-card.big .stat-label { color:rgba(255,255,255,0.65); }
+  .stat-card.big .stat-val { color:white; }
+  .stat-card.big .stat-sub { color:rgba(255,255,255,0.6); }
+  .est-sub { display:block; font-size:0.7rem; color:#777; margin-top:2px; white-space:nowrap; }
+  .inq-nombre { font-size:0.82rem; color:#888; margin-top:2px; }
+  .mas-meses { text-align:center; margin-top:0.7rem; }
+  .mas-meses button { background:none; border:1.5px solid var(--border); border-radius:8px; padding:6px 14px; font-family:'DM Sans',sans-serif; font-size:0.82rem; color:#666; cursor:pointer; }
+  .mas-meses button:hover { border-color:var(--ink); color:var(--ink); }
+  .oculto-mas { display:none; }
+  .pago-card-lineas { display:flex; flex-direction:column; gap:0.5rem; margin-top:0.5rem; }
+  .pago-card-linea { display:flex; align-items:center; justify-content:space-between; gap:0.6rem; font-size:0.82rem; }
+  .pago-card-linea .lbl { color:#888; font-size:0.74rem; text-transform:uppercase; letter-spacing:.05em; font-weight:600; }
+  .pago-card-linea .der { text-align:right; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div><span class="login-logo-dot"></span><span class="login-logo-title">MeGa Consultora</span></div>
+      <div class="login-logo-sub">Portal del Propietario</div>
+    </div>
+    <div class="login-tabs" style="display:none">
+      <button class="login-tab active">Ingresar</button>
+    </div>
+    <div id="login-panel" class="login-form">
+      <input type="email" id="login-email" placeholder="Email" autocomplete="off">
+      <div class="pass-wrap">
+        <input type="password" id="login-pass" placeholder="Contraseña">
+        <button type="button" class="pass-toggle" onclick="togglePassVisibility('login-pass', this)" aria-label="Mostrar contraseña"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+      </div>
+      <button class="login-btn" onclick="doLogin()">Ingresar</button>
+      <div style="text-align:center;margin-top:0.5rem">
+        <button onclick="showForgot()" style="background:none;border:none;color:#999;font-size:0.8rem;cursor:pointer;text-decoration:underline;font-family:'DM Sans',sans-serif">¿Olvidaste / querés cambiar tu contraseña?</button>
+      </div>
+      <div id="login-msg"></div>
+      <p style="text-align:center;font-size:0.76rem;color:#aaa;margin-top:1rem">¿Todavía no tenés acceso? Pedíselo a la inmobiliaria.</p>
+    </div>
+
+    <div id="forgot-panel" class="login-form" style="display:none">
+      <p style="font-size:0.82rem;color:#666;text-align:center">Ingresá tu email y te enviaremos un link para restablecer tu contraseña.</p>
+      <p style="font-size:0.76rem;color:#b8860b;text-align:center;background:#fff8e1;border-radius:6px;padding:6px 10px">⚠ El email puede llegar a la carpeta de Spam o No deseados — revisá ahí si no lo ves en la bandeja de entrada en unos minutos.</p>
+      <input type="email" id="forgot-email" placeholder="Tu email" autocomplete="off">
+      <button class="login-btn" onclick="doForgot()">Enviar link</button>
+      <div style="text-align:center;margin-top:0.5rem">
+        <button onclick="showLoginPanel()" style="background:none;border:none;color:#999;font-size:0.8rem;cursor:pointer;text-decoration:underline;font-family:'DM Sans',sans-serif">← Volver</button>
+      </div>
+      <div id="forgot-msg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<header>
+  <div class="logo"><div class="logo-dot"></div>Portal del Propietario</div>
+  <div class="header-right">
+    <span id="user-name" style="opacity:0.8"></span>
+    <button class="salir-btn" onclick="doLogout()">Salir</button>
+  </div>
+</header>
+
+<main id="app-content" style="display:none">
+<a href="https://wa.me/543493457147?text=Hola%2C%20soy%20propietario%20de%20MeGa%20Consultora%20y%20tengo%20una%20consulta."  target="_blank"
+  id="btn-whatsapp-flotante"
+  style="display:none;position:fixed;bottom:1.5rem;right:1.5rem;z-index:999;background:#25D366;color:white;width:52px;height:52px;border-radius:50%;box-shadow:0 4px 16px rgba(0,0,0,0.25);align-items:center;justify-content:center;font-size:1.6rem;text-decoration:none;transition:transform 0.2s"
+  onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+  <svg viewBox="0 0 24 24" fill="white" width="28" height="28"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+</a>
+  <div id="loading" class="loading">Cargando tus datos...</div>
+  <div id="content" style="display:none"></div>
+</main>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const SB_URL = 'https://hpufcseedvdmcoamundr.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhwdWZjc2VlZHZkbWNvYW11bmRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMjU5NTQsImV4cCI6MjA5MzYwMTk1NH0.x91y_KKcuqM3CXCNTsMxTmJvi8HIm4SsxxNKUaX12d0';
+const SB_AUTH = SB_URL + '/auth/v1';
+const PORTAL_URL = 'https://megaconsultora.github.io/propietarios/';
+// El registro de "Pago a propietario" en Caja empezó en septiembre 2026: los
+// meses anteriores no tienen abonos cargados, así que no se muestran como
+// "pendiente de abono" (se verían como un falso atraso). Si en el admin se
+// cargan abonos de un mes anterior, sí se muestran.
+const ABONOS_DESDE = '2026-09';
+
+function getArgentinaDate() {
+  const now = new Date();
+  const ar = new Date(now.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  const y = ar.getFullYear(), m = String(ar.getMonth()+1).padStart(2,'0'), d = String(ar.getDate()).padStart(2,'0');
+  return `${y}-${m}-${d}`;
+}
+const TODAY = getArgentinaDate();
+const HOY_MES = TODAY.substring(0,7);
+
+let currentUser = null;
+let userToken = SB_KEY;
+
+function getHeaders(token) {
+  return { 'apikey': SB_KEY, 'Authorization': `Bearer ${token || userToken}`, 'Content-Type': 'application/json' };
+}
+async function sbGet(table, params='', token) {
+  const r = await fetch(`${SB_URL}/rest/v1/${table}?${params}`, { headers: getHeaders(token) });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+// Los datos del portal salen de UNA función segura de la base (ver
+// sql_historial_local/10_portal_propietarios.sql): devuelve solo lo que le
+// corresponde al propietario logueado.
+async function sbRpc(fn, token) {
+  const r = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, { method: 'POST', headers: getHeaders(token), body: '{}' });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+// ============================================================
+// AUTH
+// ============================================================
+async function refreshToken() {
+  const refreshTk = localStorage.getItem('prop_refresh_token');
+  if (!refreshTk) return false;
+  try {
+    const r = await fetch(`${SB_AUTH}/token?grant_type=refresh_token`, {
+      method: 'POST', headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshTk })
+    });
+    if (!r.ok) return false;
+    const data = await r.json();
+    userToken = data.access_token;
+    if (currentUser) currentUser.token = data.access_token;
+    localStorage.setItem('prop_token', data.access_token);
+    if (data.refresh_token) localStorage.setItem('prop_refresh_token', data.refresh_token);
+    return true;
+  } catch(e) { return false; }
+}
+async function conRefresh(fn) {
+  try { return await fn(); }
+  catch(e) {
+    if (e.message.includes('JWT') || e.message.includes('expired')) {
+      if (await refreshToken()) return await fn();
+      doLogout();
+    }
+    throw e;
+  }
+}
+
+async function checkSession() {
+  const hash = window.location.hash;
+  if (hash.includes('error=') || hash.includes('error_code=')) {
+    window.history.replaceState({}, document.title, window.location.pathname);
+    showLogin();
+    setTimeout(() => showMsg('login', 'El link expiró o es inválido. Solicitá uno nuevo.', 'error'), 100);
+    return;
+  }
+  if (hash.includes('type=recovery') || hash.includes('type=invite')) {
+    const params = new URLSearchParams(hash.replace('#',''));
+    const accessToken = params.get('access_token');
+    if (accessToken) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+      mostrarFormularioNuevaContrasena(accessToken);
+      return;
+    }
+  }
+  const token = localStorage.getItem('prop_token');
+  const email = localStorage.getItem('prop_email');
+  if (!token || !email) { showLogin(); return; }
+  userToken = token;
+  currentUser = { token, email };
+  await refreshToken();
+  await cargarApp();
+}
+
+function togglePassVisibility(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const showing = input.type === 'text';
+  input.type = showing ? 'password' : 'text';
+  btn.innerHTML = showing
+    ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
+    : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>';
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-pass').value;
+  if (!email || !pass) { showMsg('login','Completá email y contraseña','error'); return; }
+  try {
+    const r = await fetch(`${SB_AUTH}/token?grant_type=password`, {
+      method:'POST', headers:{ 'apikey':SB_KEY, 'Content-Type':'application/json' },
+      body: JSON.stringify({ email, password: pass })
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error_description || 'Error al ingresar');
+
+    userToken = data.access_token;
+    currentUser = { token: data.access_token, email: data.user.email };
+
+    const usuarios = await sbGet('usuarios', `email=eq.${encodeURIComponent(email)}&select=*`, data.access_token);
+    if (!usuarios.length || !usuarios[0].aprobado) {
+      showMsg('login', 'Tu cuenta está pendiente de aprobación por la inmobiliaria.', 'warn');
+      return;
+    }
+    if (usuarios[0].rol !== 'propietario') {
+      showMsg('login', usuarios[0].rol === 'admin'
+        ? 'Esta sección es para propietarios. Los administradores ingresan por el sistema de gestión.'
+        : 'Esta sección es para propietarios. Si sos inquilino, ingresá por el portal del inquilino.', 'warn');
+      return;
+    }
+
+    // Con la contraseña temporal, no se guarda la sesión hasta que la
+    // cambie de verdad (si no, alcanzaba con recargar para saltearse el paso).
+    if (usuarios[0].temp_password && pass === usuarios[0].temp_password) {
+      window._pendingRefreshToken = data.refresh_token || null;
+      mostrarFormularioCambioContrasena(data.access_token, usuarios[0].id);
+      return;
+    }
+
+    localStorage.setItem('prop_token', data.access_token);
+    localStorage.setItem('prop_email', data.user.email);
+    if (data.refresh_token) localStorage.setItem('prop_refresh_token', data.refresh_token);
+    await cargarApp();
+  } catch(e) {
+    showMsg('login', 'Email o contraseña incorrectos', 'error');
+  }
+}
+
+function mostrarFormularioCambioContrasena(token, usuarioId) {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-content').style.display = 'block';
+  document.getElementById('btn-whatsapp-flotante').style.display = 'flex';
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('content').style.display = 'block';
+  const ojo = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+  document.getElementById('content').innerHTML = `
+    <div style="max-width:420px;margin:4rem auto;background:white;border-radius:16px;padding:2rem;box-shadow:0 4px 24px rgba(0,0,0,0.1)">
+      <div style="font-size:2rem;text-align:center;margin-bottom:1rem">🔑</div>
+      <h2 style="font-family:'DM Serif Display',serif;text-align:center;margin-bottom:0.5rem">Cambiá tu contraseña</h2>
+      <p style="color:#888;font-size:0.88rem;text-align:center;margin-bottom:1.5rem">Por seguridad, necesitás cambiar tu contraseña temporal antes de continuar.</p>
+      <div style="display:flex;flex-direction:column;gap:1rem">
+        <div>
+          <label style="font-size:0.82rem;color:#666;display:block;margin-bottom:4px">Nueva contraseña</label>
+          <div style="position:relative">
+            <input type="password" id="nueva-pass" placeholder="Mínimo 6 caracteres" autocomplete="new-password" style="width:100%;padding:10px 2.6rem 10px 14px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.9rem">
+            <button type="button" class="pass-toggle" onclick="togglePassVisibility('nueva-pass', this)" aria-label="Mostrar contraseña">${ojo}</button>
+          </div>
+        </div>
+        <div>
+          <label style="font-size:0.82rem;color:#666;display:block;margin-bottom:4px">Confirmar contraseña</label>
+          <div style="position:relative">
+            <input type="password" id="confirmar-pass" placeholder="Repetí la contraseña" autocomplete="new-password" style="width:100%;padding:10px 2.6rem 10px 14px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.9rem">
+            <button type="button" class="pass-toggle" onclick="togglePassVisibility('confirmar-pass', this)" aria-label="Mostrar contraseña">${ojo}</button>
+          </div>
+        </div>
+        <div id="cambio-pass-msg" style="font-size:0.82rem;display:none"></div>
+        <button onclick="confirmarCambioContrasena('${token}','${usuarioId}')" style="background:var(--green);color:white;border:none;border-radius:8px;padding:12px;font-size:0.95rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">Guardar contraseña</button>
+      </div>
+    </div>`;
+}
+
+async function confirmarCambioContrasena(token, usuarioId) {
+  const nueva = document.getElementById('nueva-pass').value;
+  const confirmar = document.getElementById('confirmar-pass').value;
+  const msg = document.getElementById('cambio-pass-msg');
+  const error = t => { msg.textContent = t; msg.style.color = 'var(--accent)'; msg.style.display = 'block'; };
+  if (nueva.length < 6) { error('La contraseña debe tener al menos 6 caracteres'); return; }
+  if (nueva !== confirmar) { error('Las contraseñas no coinciden'); return; }
+  try {
+    const r = await fetch(`${SB_URL}/auth/v1/user`, {
+      method: 'PUT', headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: nueva })
+    });
+    if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.message || d.msg || 'Error al cambiar contraseña'); }
+    await fetch(`${SB_URL}/rest/v1/usuarios?id=eq.${usuarioId}`, {
+      method: 'PATCH', headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ temp_password: null })
+    });
+    localStorage.setItem('prop_token', token);
+    localStorage.setItem('prop_email', currentUser?.email || '');
+    if (window._pendingRefreshToken) { localStorage.setItem('prop_refresh_token', window._pendingRefreshToken); window._pendingRefreshToken = null; }
+    msg.textContent = '✓ Contraseña guardada. Ingresando...'; msg.style.color = 'var(--green)'; msg.style.display = 'block';
+    setTimeout(() => cargarApp(), 1000);
+  } catch(e) { error('Error: ' + e.message); }
+}
+
+function mostrarFormularioNuevaContrasena(accessToken) {
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app-content').style.display = 'none';
+  document.querySelector('.login-tabs').style.display = 'none';
+  document.getElementById('login-panel').style.display = 'none';
+  document.getElementById('forgot-panel').style.display = 'none';
+  const ojo = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const panel = document.createElement('div');
+  panel.id = 'nueva-pass-panel'; panel.className = 'login-form';
+  panel.innerHTML = `
+    <p style="font-size:0.88rem;color:#444;text-align:center;margin-bottom:1rem">Elegí tu nueva contraseña para acceder al portal.</p>
+    <div class="pass-wrap"><input type="password" id="nueva-pass" placeholder="Nueva contraseña (mínimo 6 caracteres)"><button type="button" class="pass-toggle" onclick="togglePassVisibility('nueva-pass', this)" aria-label="Mostrar contraseña">${ojo}</button></div>
+    <div class="pass-wrap"><input type="password" id="nueva-pass-confirm" placeholder="Repetir contraseña"><button type="button" class="pass-toggle" onclick="togglePassVisibility('nueva-pass-confirm', this)" aria-label="Mostrar contraseña">${ojo}</button></div>
+    <button class="login-btn" onclick="guardarNuevaContrasena('${accessToken}')">Guardar contraseña</button>
+    <div id="nueva-pass-msg"></div>`;
+  document.querySelector('.login-card').appendChild(panel);
+}
+
+async function guardarNuevaContrasena(accessToken) {
+  const pass = document.getElementById('nueva-pass').value;
+  const confirmar = document.getElementById('nueva-pass-confirm').value;
+  const msg = document.getElementById('nueva-pass-msg');
+  if (pass.length < 6) { msg.textContent = 'Mínimo 6 caracteres'; msg.className = 'login-msg error'; return; }
+  if (pass !== confirmar) { msg.textContent = 'Las contraseñas no coinciden'; msg.className = 'login-msg error'; return; }
+  try {
+    const r = await fetch(`${SB_URL}/auth/v1/user`, {
+      method: 'PUT', headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pass })
+    });
+    if (!r.ok) {
+      const errData = await r.json().catch(() => ({}));
+      throw new Error(errData.msg || errData.error_description || errData.error || ('Error ' + r.status));
+    }
+    // Limpiar temp_password: sin esto el admin seguiría viendo una temporal "vigente".
+    try {
+      const info = await (await fetch(`${SB_URL}/auth/v1/user`, { headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${accessToken}` } })).json();
+      if (info?.email) {
+        await fetch(`${SB_URL}/rest/v1/usuarios?email=eq.${encodeURIComponent(info.email)}`, {
+          method: 'PATCH', headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ temp_password: null })
+        });
+      }
+    } catch(e2) { console.warn('No se pudo limpiar temp_password:', e2); }
+    msg.textContent = '✓ Contraseña guardada. Iniciá sesión.'; msg.className = 'login-msg success';
+    setTimeout(() => {
+      document.getElementById('nueva-pass-panel')?.remove();
+      document.querySelector('.login-tabs').style.display = 'flex';
+      document.getElementById('login-panel').style.display = 'flex';
+    }, 2000);
+  } catch(e) { msg.textContent = 'Error al guardar la contraseña: ' + e.message; msg.className = 'login-msg error'; }
+}
+
+function doLogout() {
+  detenerTimerInactividad();
+  localStorage.removeItem('prop_token');
+  localStorage.removeItem('prop_email');
+  localStorage.removeItem('prop_refresh_token');
+  currentUser = null;
+  userToken = SB_KEY;
+  document.getElementById('app-content').style.display = 'none';
+  document.getElementById('content').style.display = 'none';
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('loading').textContent = 'Cargando...';
+  const wa = document.getElementById('btn-whatsapp-flotante'); if (wa) wa.style.display = 'none';
+  const e = document.getElementById('login-email'); if (e) e.value = '';
+  const p = document.getElementById('login-pass'); if (p) p.value = '';
+  window.history.replaceState({}, document.title, window.location.pathname);
+  showLogin();
+}
+function showLogin() { document.getElementById('login-screen').style.display = 'flex'; }
+function hideLogin() { document.getElementById('login-screen').style.display = 'none'; }
+function showMsg(panel, msg, type) { const el = document.getElementById(panel+'-msg'); el.textContent = msg; el.className = 'login-msg '+type; }
+function showForgot() {
+  document.getElementById('login-panel').style.display = 'none';
+  document.getElementById('forgot-panel').style.display = 'flex';
+}
+function showLoginPanel() {
+  document.getElementById('login-panel').style.display = 'flex';
+  document.getElementById('forgot-panel').style.display = 'none';
+}
+async function doForgot() {
+  const email = document.getElementById('forgot-email').value.trim();
+  const el = document.getElementById('forgot-msg');
+  if (!email) { el.textContent = 'Ingresá tu email'; el.className = 'login-msg error'; return; }
+  try {
+    // redirect_to: que el link del mail vuelva a ESTE portal (hay que tener
+    // esta URL en Supabase > Authentication > URL Configuration > Redirect URLs).
+    await fetch(`${SB_AUTH}/recover?redirect_to=${encodeURIComponent(PORTAL_URL)}`, {
+      method: 'POST', headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email })
+    });
+    el.textContent = '✓ Si el email existe, recibirás el link en minutos. Revisá también la carpeta de Spam / No deseados.';
+    el.className = 'login-msg success';
+  } catch(e) { el.textContent = 'Error al enviar. Intentá de nuevo.'; el.className = 'login-msg error'; }
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') doLogin();
+});
+
+// ============================================================
+// CIERRE POR INACTIVIDAD (1 hora, timer local — igual que las otras apps)
+// ============================================================
+const INACTIVIDAD_LIMITE_MS = 60 * 60 * 1000;
+const INACTIVIDAD_EVENTOS = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
+let _inactividadTimer = null, _inactividadUltimoReset = 0;
+function _resetTimerInactividad() {
+  const ahora = Date.now();
+  if (ahora - _inactividadUltimoReset < 5000) return;
+  _inactividadUltimoReset = ahora;
+  if (_inactividadTimer) clearTimeout(_inactividadTimer);
+  _inactividadTimer = setTimeout(() => { toast('Se cerró la sesión por inactividad (1 hora sin uso)', 'error'); doLogout(); }, INACTIVIDAD_LIMITE_MS);
+}
+function iniciarTimerInactividad() {
+  INACTIVIDAD_EVENTOS.forEach(ev => document.addEventListener(ev, _resetTimerInactividad, { passive: true }));
+  _inactividadUltimoReset = 0;
+  _resetTimerInactividad();
+}
+function detenerTimerInactividad() {
+  if (_inactividadTimer) { clearTimeout(_inactividadTimer); _inactividadTimer = null; }
+  INACTIVIDAD_EVENTOS.forEach(ev => document.removeEventListener(ev, _resetTimerInactividad));
+}
+
+// ============================================================
+// FORMATO
+// ============================================================
+const MESES_CORTO = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function formatDate(d, showDay=false) {
+  if (!d) return '—';
+  const [y,m,day] = String(d).substring(0,10).split('-');
+  return showDay ? `${parseInt(day)} ${MESES_CORTO[parseInt(m)-1]} ${y}` : `${MESES_CORTO[parseInt(m)-1]} ${y}`;
+}
+function formatMoney(n, moneda) {
+  if (n == null || isNaN(n)) return '—';
+  const pref = moneda && moneda !== 'ARS' ? moneda + ' ' : '';
+  return '<span style="white-space:nowrap">' + pref + '$ ' + Number(n).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2}) + '</span>';
+}
+function toast(msg, type='success') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`; el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// ============================================================
+// LÓGICA DE NEGOCIO (réplica de lo que usa el sistema de gestión)
+// ============================================================
+function rendidoMonto(v) { return (v && typeof v === 'object') ? (parseFloat(v.monto)||0) : (parseFloat(v)||0); }
+const r2 = n => Math.round((n + Number.EPSILON) * 100) / 100;
+
+// Neto de lo rendido a un propietario: alquiler menos comisión, más/menos
+// servicios y extras según su signo. Mismo criterio que "Ya emitidos" en el
+// sistema de gestión. comisionPct=0 devuelve el bruto (se usa para lo que el
+// propietario cobró directo del inquilino).
+function netoRendido(items, comisionPct, extrasTipo) {
+  let total = 0;
+  Object.entries(items || {}).forEach(([key, val]) => {
+    const monto = rendidoMonto(val);
+    if (key === 'alquiler') total += monto - r2(monto * comisionPct / 100);
+    else if (key.startsWith('srv-prop-')) total -= monto;
+    else if (key.startsWith('srv-')) total += monto;
+    else if (key.startsWith('extra-')) total += ((extrasTipo || {})[key.replace('extra-','')] === 'credito' ? 1 : -1) * monto;
+    else total += monto;
+  });
+  return r2(total);
+}
+
+// Lo que el propietario cobró directo del inquilino: el alquiler y los
+// servicios que se le rinden. No incluye descuentos ni extras a su cargo
+// (eso no es plata que haya recibido).
+function brutoDirecto(items) {
+  let total = 0;
+  Object.entries(items || {}).forEach(([key, val]) => {
+    if (key === 'alquiler' || (key.startsWith('srv-') && !key.startsWith('srv-prop-'))) total += rendidoMonto(val);
+  });
+  return r2(total);
+}
+
+function fechaVencimiento(mesKey, c) {
+  const [y, m] = mesKey.split('-').map(Number);
+  const dia = c.dia_vencimiento || 10;
+  let vy = y, vm = m;
+  if ((c.modalidad_pago || 'ADELANTADO') === 'VENCIDO') { vm = m + 1; if (vm > 12) { vm = 1; vy++; } }
+  return `${vy}-${String(vm).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
+}
+
+function estadoContrato(c) {
+  if (c.fecha_rescision) return 'rescindido';
+  if (c.vigencia_hasta && String(c.vigencia_hasta).substring(0,10) < TODAY) return 'vencido';
+  return 'vigente';
+}
+
+function diasHasta(fecha) {
+  return Math.round((new Date(fecha + 'T12:00:00') - new Date(TODAY + 'T12:00:00')) / 86400000);
+}
+
+function proximaActualizacion(c) {
+  const n = { Mensual:1, Bimestral:2, Trimestral:3, Cuatrimestral:4, Semestral:6, Anual:12 }[c.periodicidad_actualizacion];
+  if (!n || !c.vigencia_desde || !c.vigencia_hasta) return null;
+  const [y, m, d] = String(c.vigencia_desde).substring(0,10).split('-').map(Number);
+  const fin = String(c.vigencia_hasta).substring(0,10);
+  for (let k = 1; k < 600; k++) {
+    const total = (m - 1) + k * n;
+    const yy = y + Math.floor(total / 12), mm = (total % 12) + 1;
+    const dd = Math.min(d, new Date(yy, mm, 0).getDate());
+    const f = `${yy}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
+    if (f > fin) return null;
+    if (f >= TODAY) return f;
+  }
+  return null;
+}
+
+// Evalúa un mes de un contrato: (1) si el inquilino pagó el alquiler y
+// (2) si ya se le abonó al propietario. Son los dos únicos pasos que ve el
+// propietario (el "rendido" / recibo emitido es un control interno).
+function evaluarPago(p, c) {
+  const mesKey = (p.mes || '').substring(0,7);
+  const multi = (c.cant_propietarios || 1) > 1;
+  const alquiler = parseFloat(p.importe_alquiler) || 0;
+  const miParte = multi ? alquiler * ((c.mi_porcentaje ?? (100 / c.cant_propietarios)) / 100) : alquiler;
+  const pagado = parseFloat(p.pagado_importe) || 0;
+  const creditos = parseFloat(p.creditos_inquilino) || 0;
+  const venc = fechaVencimiento(mesKey, c);
+
+  let inq;
+  if (!(alquiler > 0)) inq = 'sinalquiler';
+  else if (pagado + creditos >= alquiler - 0.01) inq = 'pagado';
+  else if (pagado > 0.01) inq = 'parcial';
+  else if (mesKey > HOY_MES) inq = 'futuro';
+  else if (venc < TODAY) inq = 'vencido';
+  else inq = 'pendiente';
+
+  const abonos = p.abonos || [];
+  const abonadoARS = r2(abonos.filter(a => (a.moneda || 'ARS') === 'ARS').reduce((s,a) => s + (parseFloat(a.monto)||0), 0));
+  const otrasMonedas = {};
+  abonos.filter(a => (a.moneda || 'ARS') !== 'ARS').forEach(a => { otrasMonedas[a.moneda] = r2((otrasMonedas[a.moneda]||0) + (parseFloat(a.monto)||0)); });
+  const ultimoAbono = abonos.length ? abonos.map(a => a.fecha).sort().slice(-1)[0] : null;
+  const hayItems = p.rendido_items && Object.keys(p.rendido_items).length > 0;
+  const directo = !!p.cobro_directo;
+  const directoBruto = directo ? brutoDirecto(p.rendido_items) : 0;
+  const netoEmitido = (!directo && hayItems) ? netoRendido(p.rendido_items, c.comision_porcentaje ?? 8, p.extras_tipo) : null;
+
+  let abono;
+  if (directo) abono = 'directo';
+  else if (abonadoARS > 0.01 || Object.keys(otrasMonedas).length) {
+    abono = (abonadoARS > 0.01 && netoEmitido != null && abonadoARS < netoEmitido - 0.01) ? 'parcial' : 'abonado';
+  }
+  else if (inq === 'sinalquiler') abono = 'ninguno';
+  else if (mesKey < ABONOS_DESDE) abono = 'sinregistro';
+  else if (inq === 'pagado') abono = 'pendiente';
+  else abono = 'espera';
+
+  return { p, mesKey, venc, miParte, inq, abono, abonadoARS, otrasMonedas, ultimoAbono, directoBruto };
+}
+
+// ============================================================
+// APP
+// ============================================================
+async function cargarApp() {
+  iniciarTimerInactividad();
+  hideLogin();
+  document.getElementById('app-content').style.display = 'block';
+  document.getElementById('btn-whatsapp-flotante').style.display = 'flex';
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('content').style.display = 'none';
+  const mostrar = html => {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('content').style.display = 'block';
+    document.getElementById('content').innerHTML = html;
+  };
+  try {
+    const usuarios = await conRefresh(() => sbGet('usuarios', `email=eq.${encodeURIComponent(currentUser.email)}&select=*`));
+    const usuario = usuarios[0];
+    if (!usuario || usuario.rol !== 'propietario') { doLogout(); showMsg('login', 'Esta sección es para propietarios.', 'warn'); return; }
+    document.getElementById('user-name').textContent = usuario.nombre || currentUser.email;
+    if (!usuario.persona_id) {
+      mostrar(`<div style="text-align:center;padding:3rem"><div style="font-size:2rem;margin-bottom:1rem">🏠</div>
+        <h2 style="font-family:'DM Serif Display',serif;margin-bottom:0.5rem">Tu cuenta está siendo configurada</h2>
+        <p style="color:#888;font-size:0.9rem">La inmobiliaria está vinculando tu usuario con tus propiedades. En breve podrás ver tus datos.</p></div>`);
+      return;
+    }
+    const datos = await conRefresh(() => sbRpc('portal_propietario_datos'));
+    renderApp(usuario, datos.contratos || [], datos.pagos || []);
+  } catch(e) {
+    console.error(e);
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('content').style.display = 'block';
+    document.getElementById('content').innerHTML = `<div class="empty"><p>No pudimos cargar tus datos. Probá recargar la página.</p></div>`;
+  }
+}
+
+function renderApp(usuario, contratos, pagos) {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('content').style.display = 'block';
+  const cont = document.getElementById('content');
+  if (!contratos.length) {
+    cont.innerHTML = `<div class="empty"><p>No encontramos propiedades asociadas a tu cuenta.</p></div>`;
+    return;
+  }
+  const nombre = (usuario.nombre || '').split(' ')[0];
+  const vigentes = contratos.filter(c => estadoContrato(c) === 'vigente');
+  const finalizados = contratos.filter(c => estadoContrato(c) !== 'vigente');
+
+  let html = `
+    <div class="welcome-card">
+      <div>
+        <div class="welcome-title">Hola${nombre ? ', ' + esc(nombre) : ''} 👋</div>
+        <div class="welcome-sub">Acá ves el estado de tus alquileres: si el inquilino pagó, los vencimientos y si ya te abonamos.</div>
+      </div>
+    </div>`;
+  html += vigentes.map(c => renderContrato(c, pagos)).join('');
+  if (finalizados.length) {
+    html += `<div class="section-title" style="margin-top:1.5rem;opacity:0.7">Contratos finalizados</div>`;
+    html += finalizados.map(c => `<div style="opacity:0.8">${renderContrato(c, pagos)}</div>`).join('');
+  }
+  cont.innerHTML = html;
+}
+
+function badgeInquilino(e) {
+  switch (e.inq) {
+    case 'pagado': return '<span class="badge badge-green">✓ Pagó</span>';
+    case 'parcial': return '<span class="badge badge-yellow">Pagó parcial</span>';
+    case 'vencido': return '<span class="badge badge-red">Vencido</span>';
+    case 'pendiente': return '<span class="badge badge-gray">Pendiente</span>';
+    case 'futuro': return '<span class="badge badge-blue">Próximo</span>';
+    default: return '<span style="color:#aaa">—</span>';
+  }
+}
+
+function badgeAbono(e) {
+  const monedas = [];
+  if (e.abonadoARS > 0.01) monedas.push(formatMoney(e.abonadoARS));
+  Object.entries(e.otrasMonedas).forEach(([m, v]) => monedas.push(formatMoney(v, m)));
+  const detalle = monedas.length ? `<span class="est-sub">${e.ultimoAbono ? formatDate(e.ultimoAbono, true) + ' · ' : ''}${monedas.join(' + ')}</span>` : '';
+  switch (e.abono) {
+    case 'abonado': return `<span class="badge badge-green">✓ Abonado</span>${detalle}`;
+    case 'parcial': return `<span class="badge badge-yellow">Abonado parcial</span>${detalle}`;
+    case 'directo': return `<span class="badge badge-blue">Cobrado directo</span>${e.directoBruto > 0.01 ? `<span class="est-sub">${formatMoney(e.directoBruto)}</span>` : ''}`;
+    case 'pendiente': return '<span class="badge badge-yellow">Pendiente de abono</span>';
+    case 'espera': return '<span style="color:#aaa;font-size:0.78rem">Esperando cobro</span>';
+    case 'ninguno': return '<span style="color:#aaa">—</span>';
+    default: return '<span style="color:#bbb;font-size:0.78rem" title="Los abonos se registran desde septiembre 2026">Sin registro</span>';
+  }
+}
+
+function renderContrato(c, todosPagos) {
+  const evals = todosPagos
+    .filter(p => p.hoja === c.hoja && p.mes && p.mes.substring(0,7) <= sumarMes(HOY_MES, 1))
+    .map(p => evaluarPago(p, c))
+    .sort((a,b) => b.mesKey.localeCompare(a.mesKey));
+  const est = estadoContrato(c);
+  const multi = (c.cant_propietarios || 1) > 1;
+
+  // Total percibido: lo que MeGa le abonó (movimientos "Pago a propietario"
+  // de este propietario) + lo que cobró directo del inquilino.
+  const totalAbonado = r2(evals.reduce((s,e) => s + e.abonadoARS, 0));
+  const totalDirecto = r2(evals.reduce((s,e) => s + e.directoBruto, 0));
+  const otras = {};
+  evals.forEach(e => Object.entries(e.otrasMonedas).forEach(([m, v]) => { otras[m] = r2((otras[m]||0) + v); }));
+  const totalPercibido = r2(totalAbonado + totalDirecto);
+  const hayOtras = Object.keys(otras).length > 0;
+  // Un contrato en dólares no debe mostrar "$ 0,00": el titular junta cada moneda.
+  const titularPercibido = [
+    (totalPercibido > 0.004 || !hayOtras) ? formatMoney(totalPercibido) : '',
+    ...Object.entries(otras).map(([m, v]) => formatMoney(v, m))
+  ].filter(Boolean).join(' + ');
+  const subPercibido = totalPercibido > 0.004
+    ? [totalAbonado > 0 ? `Abonado: ${formatMoney(totalAbonado)}` : '', totalDirecto > 0 ? `Cobrado directo: ${formatMoney(totalDirecto)}` : ''].filter(Boolean).join(' · ')
+    : (hayOtras ? 'Abonado por MeGa Consultora' : 'Todavía sin abonos');
+
+  // Próximo vencimiento: la próxima cuota sin cobrar al inquilino; si todas las
+  // que quedan están vencidas, la más antigua (para no dejar la tarjeta vacía).
+  let proxFutura = null, masVencida = null;
+  if (est === 'vigente') {
+    evals.filter(e => ['pendiente','parcial','vencido','futuro'].includes(e.inq)).forEach(e => {
+      if (e.venc >= TODAY) { if (!proxFutura || e.venc < proxFutura) proxFutura = e.venc; }
+      else if (!masVencida || e.venc < masVencida) masVencida = e.venc;
+    });
+  }
+  const proxVenc = proxFutura || masVencida;
+  const proxVencHtml = est !== 'vigente' ? '—'
+    : !proxVenc ? '✓ Al día'
+    : `${formatDate(proxVenc, true)}`;
+  const proxVencSub = est !== 'vigente' || !proxVenc ? 'Sin cuotas pendientes'
+    : (proxVenc >= TODAY ? `En ${diasHasta(proxVenc)} días` : 'Cuota vencida sin cobrar');
+
+  const venc = c.vigencia_hasta ? String(c.vigencia_hasta).substring(0,10) : null;
+  const vencContratoHtml = est === 'rescindido' ? 'Rescindido' : venc ? formatDate(venc, true) : '—';
+  const mesesRestantes = venc ? Math.round(diasHasta(venc) / 30) : null;
+  const vencContratoSub = est === 'rescindido' ? formatDate(c.fecha_rescision, true)
+    : est === 'vencido' ? 'Contrato vencido'
+    : mesesRestantes != null ? (mesesRestantes > 0 ? `Faltan ~${mesesRestantes} ${mesesRestantes === 1 ? 'mes' : 'meses'}` : 'Vence este mes') : '';
+
+  const actual = est === 'vigente' ? proximaActualizacion(c) : null;
+  const actualSub = actual ? `${c.periodicidad_actualizacion || ''}${c.indice_actualizacion ? ' · ' + c.indice_actualizacion : ''}` : 'Sin más actualizaciones';
+
+  const badgeClass = est === 'vigente' ? 'badge-green' : 'badge-gray';
+  const id = 'c' + c.contrato_id;
+  const filasTabla = evals.map((e, i) => `
+    <tr class="${e.abono === 'abonado' || e.abono === 'directo' ? 'row-pagado' : e.inq === 'vencido' ? 'row-vencido' : e.inq === 'futuro' ? 'row-futuro' : e.abono === 'pendiente' || e.inq === 'parcial' ? 'row-parcial' : ''}${i >= 12 ? ' oculto-mas ' + id : ''}">
+      <td><strong>${formatDate(e.p.mes)}</strong></td>
+      <td style="white-space:nowrap">${formatDate(e.venc, true)}</td>
+      <td class="r">${e.miParte > 0 ? formatMoney(e.miParte) : '—'}</td>
+      <td>${badgeInquilino(e)}</td>
+      <td>${badgeAbono(e)}</td>
+    </tr>`).join('');
+  const tarjetas = evals.map((e, i) => `
+    <div class="pago-card ${e.abono === 'abonado' || e.abono === 'directo' ? 'row-pagado' : e.inq === 'vencido' ? 'row-vencido' : e.inq === 'futuro' ? 'row-futuro' : e.abono === 'pendiente' || e.inq === 'parcial' ? 'row-parcial' : ''}${i >= 12 ? ' oculto-mas ' + id : ''}">
+      <div class="pago-card-top"><span class="pago-card-mes">${formatDate(e.p.mes)}</span><span style="font-size:0.78rem;color:#888">Vence ${formatDate(e.venc, true)}</span></div>
+      <div class="pago-card-lineas">
+        <div class="pago-card-linea"><span class="lbl">Mi alquiler</span><span class="der"><strong>${e.miParte > 0 ? formatMoney(e.miParte) : '—'}</strong></span></div>
+        <div class="pago-card-linea"><span class="lbl">Inquilino</span><span class="der">${badgeInquilino(e)}</span></div>
+        <div class="pago-card-linea"><span class="lbl">Abonado a vos</span><span class="der">${badgeAbono(e)}</span></div>
+      </div>
+    </div>`).join('');
+
+  return `
+    <div class="contrato-card">
+      <div class="contrato-header">
+        <div>
+          <div class="contrato-titulo">${esc(c.titulo || c.hoja)}</div>
+          <div style="font-size:0.78rem;opacity:0.7;margin-top:2px">Inquilino: ${esc(c.locatario || '—')}</div>
+        </div>
+        <span class="badge ${badgeClass}">${est}</span>
+      </div>
+      <div class="contrato-body">
+        <div class="stats-row cuatro">
+          <div class="stat-card big"><div class="stat-label">Total percibido</div><div class="stat-val">${titularPercibido}</div><div class="stat-sub">${subPercibido}</div></div>
+          <div class="stat-card gold"><div class="stat-label">Próximo vencimiento</div><div class="stat-val">${proxVencHtml}</div><div class="stat-sub">${proxVencSub}</div></div>
+          <div class="stat-card accent"><div class="stat-label">Vencimiento del contrato</div><div class="stat-val">${vencContratoHtml}</div><div class="stat-sub">${vencContratoSub}</div></div>
+          <div class="stat-card purple"><div class="stat-label">Próxima actualización</div><div class="stat-val">${actual ? formatDate(actual, true) : '—'}</div><div class="stat-sub">${esc(actualSub)}</div></div>
+        </div>
+        <div class="contrato-info">
+          <div class="info-item"><label>Vigencia</label><span>${formatDate(c.vigencia_desde, true)} → ${formatDate(c.vigencia_hasta, true)}</span></div>
+          ${multi ? `<div class="info-item"><label>Tu participación</label><span>${c.mi_porcentaje ?? '—'}%</span></div>` : ''}
+          <div class="info-item"><label>Modalidad de pago</label><span>${esc(c.modalidad_pago || '—')}</span></div>
+          <div class="info-item"><label>Vence el día</label><span>${c.dia_vencimiento || 10} de cada mes</span></div>
+        </div>
+        <div class="section-title">Detalle mensual</div>
+        ${evals.length ? `
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Mes</th><th>Vence</th><th class="r">${multi ? 'Tu parte del alquiler' : 'Alquiler'}</th><th>Cobro al inquilino</th><th>Abonado a vos</th></tr></thead>
+            <tbody>${filasTabla}</tbody>
+          </table>
+        </div>
+        <div class="pagos-cards">${tarjetas}</div>
+        ${evals.length > 12 ? `<div class="mas-meses"><button onclick="verMasMeses('${id}', this)">Ver meses anteriores</button></div>` : ''}
+        ` : '<div class="empty"><p>Todavía no hay meses cargados.</p></div>'}
+      </div>
+    </div>`;
+}
+
+function verMasMeses(id, btn) {
+  document.querySelectorAll('.' + id).forEach(el => el.classList.toggle('oculto-mas'));
+  const abierto = btn.dataset.abierto === '1';
+  btn.dataset.abierto = abierto ? '0' : '1';
+  btn.textContent = abierto ? 'Ver meses anteriores' : 'Ocultar meses anteriores';
+}
+
+function sumarMes(ym, n) {
+  const [y, m] = ym.split('-').map(Number);
+  const t = (m - 1) + n;
+  return `${y + Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, '0')}`;
+}
+
+checkSession();
+</script>
+</body>
+</html>
