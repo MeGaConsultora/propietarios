@@ -64,6 +64,8 @@
   .logo-dot { width:7px; height:7px; background:var(--accent); border-radius:50%; }
   .header-right { display:flex; align-items:center; gap:0.75rem; font-size:0.82rem; }
   .salir-btn { background:rgba(255,255,255,0.12); border:none; color:white; padding:5px 12px; border-radius:6px; cursor:pointer; font-family:'DM Sans',sans-serif; font-size:0.82rem; white-space:nowrap; }
+  #sel-portal { background:rgba(255,255,255,0.12); border:none; color:white; padding:5px 8px; border-radius:6px; font-family:'DM Sans',sans-serif; font-size:0.82rem; cursor:pointer; max-width:130px; }
+  #sel-portal option { color:#1a1a2e; }
   @media (max-width: 480px) {
     header { padding:0 0.85rem; }
     .logo { font-size:0.95rem; gap:5px; }
@@ -187,6 +189,9 @@
   }
 
 
+  #sel-portal { background:rgba(255,255,255,0.12); border:none; color:white; padding:5px 8px; border-radius:6px; font-family:'DM Sans',sans-serif; font-size:0.82rem; cursor:pointer; max-width:130px; }
+  #sel-portal option { color:#1a1a2e; }
+
   /* PORTAL PROPIETARIOS */
   @media (min-width: 960px) { main { max-width:1100px; } }
   .stats-row.cuatro { grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); }
@@ -257,6 +262,7 @@
 <header>
   <div class="logo"><div class="logo-dot"></div>Portal del Propietario</div>
   <div class="header-right">
+    <select id="sel-portal" style="display:none" onchange="cambiarPortal(this.value)" aria-label="Ver como"></select>
     <span id="user-name" style="opacity:0.8"></span>
     <button class="salir-btn" onclick="doLogout()">Salir</button>
   </div>
@@ -314,6 +320,58 @@ async function sbRpc(fn, token) {
   const r = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, { method: 'POST', headers: getHeaders(token), body: '{}' });
   if (!r.ok) throw new Error(await r.text());
   return r.json();
+}
+
+// ============================================================
+// VARIOS ROLES EN UN MISMO USUARIO ("Ver como…")
+// Los roles se detectan por los datos (función mis_roles() de la base): un
+// mismo email puede ser inquilino, propietario y/o administrador. Los tres
+// portales viven en el mismo dominio, así que el cambio de portal pasa la
+// sesión por localStorage, sin volver a loguearse.
+// ============================================================
+const PORTALES = {
+  inquilinos:   { nombre: 'Inquilino',      ruta: '/inquilinos/',   claves: { token: 'inq_token',  email: 'inq_email',  refresh: 'inq_refresh_token' } },
+  propietarios: { nombre: 'Propietario',    ruta: '/propietarios/', claves: { token: 'prop_token', email: 'prop_email', refresh: 'prop_refresh_token' } },
+  locaciones:   { nombre: 'Administración', ruta: '/locaciones/',   claves: { token: 'sb_token',   email: 'sb_email',   refresh: 'sb_refresh_token', uid: 'sb_uid' } }
+};
+const PORTAL_ACTUAL = 'propietarios';
+
+function uidDelToken(t) {
+  try { return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).sub || ''; } catch(e) { return ''; }
+}
+function renderSelectorPortal(roles) {
+  const sel = document.getElementById('sel-portal');
+  if (!sel || !roles) return;
+  const disponibles = [];
+  if (roles.inquilino) disponibles.push('inquilinos');
+  if (roles.propietario) disponibles.push('propietarios');
+  if (roles.admin) disponibles.push('locaciones');
+  if (disponibles.length < 2) { sel.style.display = 'none'; return; }
+  sel.innerHTML = '<option value="">Ver como…</option>' +
+    disponibles.filter(d => d !== PORTAL_ACTUAL).map(d => `<option value="${d}">${PORTALES[d].nombre}</option>`).join('');
+  sel.style.display = '';
+}
+function cambiarPortal(destino) {
+  const p = PORTALES[destino];
+  if (!p || !currentUser?.token) return;
+  // Se pasa SOLO el token de acceso, nunca el de renovación (Supabase puede
+  // invalidar la sesión si dos apps usan el mismo token de renovación). Y se
+  // borra el de renovación que pudiera haber en el portal de destino: podría
+  // ser de otro usuario que usó antes este navegador.
+  localStorage.removeItem(p.claves.refresh);
+  localStorage.setItem(p.claves.token, currentUser.token);
+  localStorage.setItem(p.claves.email, currentUser.email);
+  if (p.claves.uid) localStorage.setItem(p.claves.uid, uidDelToken(currentUser.token));
+  window.location.href = p.ruta;
+}
+// Al salir, también se cierra la sesión de los otros portales, pero solo si
+// es del mismo usuario (otra persona podría estar usando otro portal).
+function cerrarSesionesDelUsuario(email) {
+  Object.values(PORTALES).forEach(p => {
+    if (email && localStorage.getItem(p.claves.email) === email) {
+      Object.values(p.claves).forEach(k => localStorage.removeItem(k));
+    }
+  });
 }
 
 // ============================================================
@@ -403,10 +461,15 @@ async function doLogin() {
       showMsg('login', 'Tu cuenta está pendiente de aprobación por la inmobiliaria.', 'warn');
       return;
     }
-    if (usuarios[0].rol !== 'propietario') {
-      showMsg('login', usuarios[0].rol === 'admin'
-        ? 'Esta sección es para propietarios. Los administradores ingresan por el sistema de gestión.'
-        : 'Esta sección es para propietarios. Si sos inquilino, ingresá por el portal del inquilino.', 'warn');
+    // Entra quien sea propietario según los datos (puede ser además inquilino
+    // o admin). Si la función de roles no responde, vale el rol guardado.
+    const roles = await sbRpc('mis_roles', data.access_token).catch(() => null);
+    if (usuarios[0].rol !== 'propietario' && !(roles && roles.propietario)) {
+      showMsg('login', roles && roles.inquilino
+        ? 'No encontramos propiedades a tu nombre. Si sos inquilino, ingresá por megaconsultora.github.io/inquilinos'
+        : roles && roles.admin
+          ? 'Esta sección es para propietarios. Los administradores ingresan por el sistema de gestión.'
+          : 'Esta sección es para propietarios.', 'warn');
       return;
     }
 
@@ -539,9 +602,11 @@ async function guardarNuevaContrasena(accessToken) {
 
 function doLogout() {
   detenerTimerInactividad();
+  cerrarSesionesDelUsuario(currentUser?.email || localStorage.getItem('prop_email'));
   localStorage.removeItem('prop_token');
   localStorage.removeItem('prop_email');
   localStorage.removeItem('prop_refresh_token');
+  const selP = document.getElementById('sel-portal'); if (selP) selP.style.display = 'none';
   currentUser = null;
   userToken = SB_KEY;
   document.getElementById('app-content').style.display = 'none';
@@ -757,7 +822,10 @@ async function cargarApp() {
   try {
     const usuarios = await conRefresh(() => sbGet('usuarios', `email=eq.${encodeURIComponent(currentUser.email)}&select=*`));
     const usuario = usuarios[0];
-    if (!usuario || usuario.rol !== 'propietario') { doLogout(); showMsg('login', 'Esta sección es para propietarios.', 'warn'); return; }
+    const roles = await conRefresh(() => sbRpc('mis_roles')).catch(() => null);
+    window._roles = roles;
+    if (!usuario || (usuario.rol !== 'propietario' && !(roles && roles.propietario))) { doLogout(); showMsg('login', 'Esta sección es para propietarios.', 'warn'); return; }
+    renderSelectorPortal(roles);
     document.getElementById('user-name').textContent = usuario.nombre || currentUser.email;
     if (!usuario.persona_id) {
       mostrar(`<div style="text-align:center;padding:3rem"><div style="font-size:2rem;margin-bottom:1rem">🏠</div>
