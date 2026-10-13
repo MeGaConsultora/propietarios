@@ -5,6 +5,21 @@
 <link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Portal del Propietario — MeGa Consultora</title>
+<!-- PWA: permite "Instalar app" en el navegador -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MeGa Propietarios">
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW no registrado:', err));
+    });
+  }
+</script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 
@@ -213,6 +228,14 @@
   .mas-meses button { background:none; border:1.5px solid var(--border); border-radius:8px; padding:6px 14px; font-family:'DM Sans',sans-serif; font-size:0.82rem; color:#666; cursor:pointer; }
   .mas-meses button:hover { border-color:var(--ink); color:var(--ink); }
   .oculto-mas { display:none; }
+  /* Cartel "Instalar app" */
+  .install-banner { background:white; border:1px solid var(--border); border-radius:14px; padding:0.8rem 1rem; margin-bottom:1rem; display:flex; align-items:center; gap:0.8rem; box-shadow:var(--shadow); }
+  .install-banner .ib-icono { font-size:1.6rem; }
+  .install-banner .ib-texto { flex:1; font-size:0.84rem; line-height:1.35; }
+  .install-banner .ib-texto strong { display:block; font-size:0.92rem; }
+  .install-banner .ib-texto span { color:#777; }
+  .install-banner .ib-instalar { background:var(--ink); color:white; border:none; border-radius:8px; padding:0.5rem 1rem; font-family:inherit; font-size:0.85rem; font-weight:600; cursor:pointer; white-space:nowrap; }
+  .install-banner .ib-cerrar { background:none; border:none; color:#999; font-size:1.3rem; line-height:1; cursor:pointer; padding:0 0.2rem; }
   /* Total a cobrar: botón + desglose desplegable */
   .tc-btn { background:none; border:none; padding:2px 0; font:inherit; font-weight:700; color:inherit; cursor:pointer; display:inline-flex; align-items:center; gap:4px; border-bottom:1px dashed #aaa; }
   .tc-btn:hover { color:var(--accent, #1877F2); }
@@ -294,6 +317,7 @@
   onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
   <svg viewBox="0 0 24 24" fill="white" width="28" height="28"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
 </a>
+  <div id="install-banner" class="install-banner" style="display:none"></div>
   <div id="loading" class="loading">Cargando tus datos...</div>
   <div id="content" style="display:none"></div>
 </main>
@@ -1148,6 +1172,52 @@ function sumarMes(ym, n) {
   const t = (m - 1) + n;
   return `${y + Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, '0')}`;
 }
+
+// ============================================================
+// INSTALAR LA APP
+// En Android / PC el navegador avisa con "beforeinstallprompt" y el botón
+// dispara su diálogo. En iPhone / iPad no existe ese aviso: solo se puede
+// agregar desde Safari (Compartir → Agregar a pantalla de inicio), así que se
+// muestra la indicación. El cartel no sale si la app ya está instalada ni si
+// se lo cerró con la ×.
+// ============================================================
+let _installPrompt = null;
+const INSTALL_OCULTO_KEY = 'prop_install_oculto';
+function esAppInstalada() {
+  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+}
+function esIOS() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+function renderBannerInstalar() {
+  const el = document.getElementById('install-banner');
+  if (!el) return;
+  let oculto = false;
+  try { oculto = localStorage.getItem(INSTALL_OCULTO_KEY) === '1'; } catch(e) {}
+  const ios = esIOS();
+  if (esAppInstalada() || oculto || (!_installPrompt && !ios)) { el.style.display = 'none'; return; }
+  el.innerHTML = `
+    <div class="ib-icono">📲</div>
+    <div class="ib-texto"><strong>Instalá la app en tu celular</strong>
+      <span>${_installPrompt ? 'Entrás más rápido, como cualquier otra app.' : 'En Safari tocá Compartir (el cuadrado con la flecha) y elegí «Agregar a pantalla de inicio».'}</span></div>
+    ${_installPrompt ? '<button class="ib-instalar" onclick="instalarApp()">Instalar</button>' : ''}
+    <button class="ib-cerrar" onclick="cerrarBannerInstalar()" aria-label="No mostrar más">×</button>`;
+  el.style.display = 'flex';
+}
+async function instalarApp() {
+  if (!_installPrompt) return;
+  _installPrompt.prompt();
+  try { await _installPrompt.userChoice; } catch(e) {}
+  _installPrompt = null;
+  renderBannerInstalar();
+}
+function cerrarBannerInstalar() {
+  try { localStorage.setItem(INSTALL_OCULTO_KEY, '1'); } catch(e) {}
+  renderBannerInstalar();
+}
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); _installPrompt = e; renderBannerInstalar(); });
+window.addEventListener('appinstalled', () => { _installPrompt = null; renderBannerInstalar(); });
+renderBannerInstalar();
 
 checkSession();
 </script>
