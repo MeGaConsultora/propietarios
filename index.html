@@ -213,6 +213,25 @@
   .mas-meses button { background:none; border:1.5px solid var(--border); border-radius:8px; padding:6px 14px; font-family:'DM Sans',sans-serif; font-size:0.82rem; color:#666; cursor:pointer; }
   .mas-meses button:hover { border-color:var(--ink); color:var(--ink); }
   .oculto-mas { display:none; }
+  /* Total a cobrar: botón + desglose desplegable */
+  .tc-btn { background:none; border:none; padding:2px 0; font:inherit; font-weight:700; color:inherit; cursor:pointer; display:inline-flex; align-items:center; gap:4px; border-bottom:1px dashed #aaa; }
+  .tc-btn:hover { color:var(--accent, #1877F2); }
+  .tc-flecha { font-size:0.7rem; transition:transform .15s; }
+  .tc-btn[aria-expanded="true"] .tc-flecha { transform:rotate(180deg); }
+  .det-row, .det-card { display:none; }
+  .det-row.abierto { display:table-row; }
+  .det-card.abierto { display:block; }
+  .det-row.oculto-mas, .det-card.oculto-mas { display:none !important; }
+  .det-row td { background:#fbfaf6; padding:0.6rem 1rem; }
+  .det-box { font-size:0.82rem; max-width:420px; margin-left:auto; text-align:left; }
+  .det-card .det-box { max-width:none; }
+  .det-titulo { font-size:0.68rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:#999; margin-bottom:4px; }
+  .det-linea { display:flex; justify-content:space-between; gap:1rem; padding:3px 0; }
+  .det-linea .neg { color:#c8483a; }
+  .det-linea span:last-child { white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .det-total { border-top:1px solid #ccc; margin-top:4px; padding-top:6px; font-weight:700; }
+  .det-nota { font-size:0.72rem; color:#888; margin-top:6px; line-height:1.4; }
+  .det-card { background:#fbfaf6; border-radius:8px; padding:0.5rem 0.7rem; }
   .pago-card-lineas { display:flex; flex-direction:column; gap:0.5rem; margin-top:0.5rem; }
   .pago-card-linea { display:flex; align-items:center; justify-content:space-between; gap:0.6rem; font-size:0.82rem; }
   .pago-card-linea .lbl { color:#888; font-size:0.74rem; text-transform:uppercase; letter-spacing:.05em; font-weight:600; }
@@ -801,7 +820,77 @@ function evaluarPago(p, c) {
   else if (inq === 'pagado') abono = 'pendiente';
   else abono = 'espera';
 
-  return { p, mesKey, venc, miParte, inq, abono, abonadoARS, otrasMonedas, ultimoAbono, directoBruto };
+  const det = detalleNeto(p, c, miParte, multi);
+  return { p, mesKey, venc, miParte, det, inq, abono, abonadoARS, otrasMonedas, ultimoAbono, directoBruto };
+}
+
+// "Total a cobrar" de un mes, con su desglose (alquiler, comisión, servicios y
+// extras). Si el sistema de gestión ya cargó la rendición de ese mes
+// (rendido_items) se usa exactamente eso, igual que "Ya emitidos". Si todavía
+// no, es un ESTIMADO: alquiler − comisión ± extras del propietario (no incluye
+// servicios que se rindan ni honorarios, que recién se conocen al rendir).
+const NOMBRES_SERVICIO = { epe:'EPE', agua:'Agua', tgiu:'TGIU', seguro:'Seguro', internet:'Internet', expensas:'Expensas' };
+function detalleNeto(p, c, miParte, multi) {
+  const comPct = c.comision_porcentaje ?? 8;
+  const extras = p.extras_prop || [];
+  const tipoExtra = p.extras_tipo || {};
+  const conceptoExtra = id => { const x = extras.find(e => String(e.id) === String(id)); return (x && x.concepto) || 'Extra'; };
+  const lineas = [];
+  const items = p.rendido_items || {};
+  const hayItems = Object.keys(items).length > 0;
+  if (hayItems) {
+    const claves = Object.keys(items);
+    const orden = k => k === 'alquiler' ? 0 : k.startsWith('srv-prop-') ? 2 : k.startsWith('srv-') ? 1 : k.startsWith('extra-') ? 3 : 4;
+    claves.sort((a, b) => orden(a) - orden(b));
+    claves.forEach(key => {
+      const monto = rendidoMonto(items[key]);
+      if (!(Math.abs(monto) > 0.004)) return;
+      if (key === 'alquiler') {
+        lineas.push({ label: multi ? `Alquiler (tu ${c.mi_porcentaje ?? ''}%)` : 'Alquiler', monto });
+        const com = r2(monto * comPct / 100);
+        if (com > 0.004) lineas.push({ label: `Comisión ${comPct}%`, monto: -com });
+      } else if (key.startsWith('srv-prop-')) {
+        const t = key.split('-')[2];
+        lineas.push({ label: `${NOMBRES_SERVICIO[t] || t} (a tu cargo)`, monto: -monto });
+      } else if (key.startsWith('srv-')) {
+        const t = key.split('-')[1];
+        lineas.push({ label: `${NOMBRES_SERVICIO[t] || t} (a rendir)`, monto });
+      } else if (key.startsWith('extra-')) {
+        const id = key.replace('extra-', '');
+        lineas.push({ label: conceptoExtra(id), monto: (tipoExtra[id] === 'credito' ? 1 : -1) * monto });
+      } else lineas.push({ label: key, monto });
+    });
+  } else {
+    if (!(miParte > 0)) return null;
+    lineas.push({ label: multi ? `Alquiler (tu ${c.mi_porcentaje ?? ''}%)` : 'Alquiler', monto: r2(miParte) });
+    const com = r2(miParte * comPct / 100);
+    if (com > 0.004) lineas.push({ label: `Comisión ${comPct}%`, monto: -com });
+    extras.forEach(x => {
+      let imp = Math.abs(parseFloat(x.importe) || 0);
+      if (x.todos && multi) imp = r2(imp * ((c.mi_porcentaje ?? (100 / c.cant_propietarios)) / 100));
+      if (imp > 0.004) lineas.push({ label: x.concepto || 'Extra', monto: (x.tipo === 'credito' ? 1 : -1) * imp });
+    });
+  }
+  const total = r2(lineas.reduce((s, l) => s + l.monto, 0));
+  return { lineas, total, estimado: !hayItems };
+}
+
+function detalleHtml(d) {
+  const filas = d.lineas.map(l => `<div class="det-linea"><span>${esc(l.label)}</span><span class="${l.monto < 0 ? 'neg' : ''}">${formatMoney(l.monto)}</span></div>`).join('');
+  const nota = d.estimado
+    ? '<div class="det-nota">Estimado: todavía no se emitió la rendición de este mes. No incluye servicios que se rindan ni honorarios; el valor definitivo se confirma al rendir.</div>'
+    : '';
+  return `<div class="det-box"><div class="det-titulo">Cómo se calcula</div>${filas}<div class="det-linea det-total"><span>Total a cobrar</span><span>${formatMoney(d.total)}</span></div>${nota}</div>`;
+}
+
+function toggleDetalle(key) {
+  document.querySelectorAll('.detrow-' + key).forEach(el => el.classList.toggle('abierto'));
+  document.querySelectorAll('[data-det="' + key + '"]').forEach(b => b.setAttribute('aria-expanded', b.getAttribute('aria-expanded') === 'true' ? 'false' : 'true'));
+}
+
+function celdaTotalCobrar(e, key) {
+  if (!e.det) return '—';
+  return `<button class="tc-btn" data-det="${key}" aria-expanded="false" onclick="toggleDetalle('${key}')" title="Ver detalle">${formatMoney(e.det.total)}<span class="tc-flecha">▾</span></button>${e.det.estimado ? '<span class="est-sub">Estimado</span>' : ''}`;
 }
 
 // ============================================================
@@ -950,23 +1039,36 @@ function renderContrato(c, todosPagos) {
 
   const badgeClass = est === 'vigente' ? 'badge-green' : 'badge-gray';
   const id = 'c' + c.contrato_id;
-  const filasTabla = evals.map((e, i) => `
-    <tr class="${e.abono === 'abonado' || e.abono === 'directo' ? 'row-pagado' : e.inq === 'vencido' ? 'row-vencido' : e.inq === 'futuro' ? 'row-futuro' : e.abono === 'pendiente' || e.inq === 'parcial' ? 'row-parcial' : ''}${i >= 12 ? ' oculto-mas ' + id : ''}">
+  // La tabla muestra hasta el mes corriente: los 3 más recientes a la vista y
+  // el resto bajo "Ver meses anteriores". (Las estadísticas de arriba sí miran
+  // el mes siguiente para calcular el próximo vencimiento.)
+  const MESES_VISIBLES = 3;
+  const evalsTabla = evals.filter(e => e.mesKey <= HOY_MES);
+  const ocultar = i => i >= MESES_VISIBLES ? ' oculto-mas ' + id : '';
+  const filasTabla = evalsTabla.map((e, i) => {
+    const key = id + '-' + e.mesKey;
+    return `
+    <tr class="${e.abono === 'abonado' || e.abono === 'directo' ? 'row-pagado' : e.inq === 'vencido' ? 'row-vencido' : e.inq === 'futuro' ? 'row-futuro' : e.abono === 'pendiente' || e.inq === 'parcial' ? 'row-parcial' : ''}${ocultar(i)}">
       <td><strong>${formatDate(e.p.mes)}</strong></td>
       <td style="white-space:nowrap">${formatDate(e.venc, true)}</td>
-      <td class="r">${e.miParte > 0 ? formatMoney(e.miParte) : '—'}</td>
+      <td class="r">${celdaTotalCobrar(e, key)}</td>
       <td>${badgeInquilino(e)}</td>
       <td>${badgeAbono(e)}</td>
-    </tr>`).join('');
-  const tarjetas = evals.map((e, i) => `
-    <div class="pago-card ${e.abono === 'abonado' || e.abono === 'directo' ? 'row-pagado' : e.inq === 'vencido' ? 'row-vencido' : e.inq === 'futuro' ? 'row-futuro' : e.abono === 'pendiente' || e.inq === 'parcial' ? 'row-parcial' : ''}${i >= 12 ? ' oculto-mas ' + id : ''}">
+    </tr>${e.det ? `<tr class="det-row detrow-${key}${ocultar(i)}"><td colspan="5">${detalleHtml(e.det)}</td></tr>` : ''}`;
+  }).join('');
+  const tarjetas = evalsTabla.map((e, i) => {
+    const key = id + '-' + e.mesKey;
+    return `
+    <div class="pago-card ${e.abono === 'abonado' || e.abono === 'directo' ? 'row-pagado' : e.inq === 'vencido' ? 'row-vencido' : e.inq === 'futuro' ? 'row-futuro' : e.abono === 'pendiente' || e.inq === 'parcial' ? 'row-parcial' : ''}${ocultar(i)}">
       <div class="pago-card-top"><span class="pago-card-mes">${formatDate(e.p.mes)}</span><span style="font-size:0.78rem;color:#888">Vence ${formatDate(e.venc, true)}</span></div>
       <div class="pago-card-lineas">
-        <div class="pago-card-linea"><span class="lbl">Mi alquiler</span><span class="der"><strong>${e.miParte > 0 ? formatMoney(e.miParte) : '—'}</strong></span></div>
+        <div class="pago-card-linea"><span class="lbl">Total a cobrar</span><span class="der">${celdaTotalCobrar(e, key)}</span></div>
+        ${e.det ? `<div class="det-card detrow-${key}">${detalleHtml(e.det)}</div>` : ''}
         <div class="pago-card-linea"><span class="lbl">Inquilino</span><span class="der">${badgeInquilino(e)}</span></div>
         <div class="pago-card-linea"><span class="lbl">Abonado a vos</span><span class="der">${badgeAbono(e)}</span></div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   return `
     <div class="contrato-card">
@@ -991,15 +1093,15 @@ function renderContrato(c, todosPagos) {
           <div class="info-item"><label>Vence el día</label><span>${c.dia_vencimiento || 10} de cada mes</span></div>
         </div>
         <div class="section-title">Detalle mensual</div>
-        ${evals.length ? `
+        ${evalsTabla.length ? `
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Mes</th><th>Vence</th><th class="r">${multi ? 'Tu parte del alquiler' : 'Alquiler'}</th><th>Cobro al inquilino</th><th>Abonado a vos</th></tr></thead>
+            <thead><tr><th>Mes</th><th>Vence</th><th class="r">Total a cobrar</th><th>Cobro al inquilino</th><th>Abonado a vos</th></tr></thead>
             <tbody>${filasTabla}</tbody>
           </table>
         </div>
         <div class="pagos-cards">${tarjetas}</div>
-        ${evals.length > 12 ? `<div class="mas-meses"><button onclick="verMasMeses('${id}', this)">Ver meses anteriores</button></div>` : ''}
+        ${evalsTabla.length > MESES_VISIBLES ? `<div class="mas-meses"><button onclick="verMasMeses('${id}', this)">Ver meses anteriores</button></div>` : ''}
         ` : '<div class="empty"><p>Todavía no hay meses cargados.</p></div>'}
       </div>
     </div>`;
