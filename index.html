@@ -373,11 +373,15 @@ function renderSelectorPortal(roles) {
 function cambiarPortal(destino) {
   const p = PORTALES[destino];
   if (!p || !currentUser?.token) return;
-  // Se pasa SOLO el token de acceso, nunca el de renovación (Supabase puede
-  // invalidar la sesión si dos apps usan el mismo token de renovación). Y se
-  // borra el de renovación que pudiera haber en el portal de destino: podría
-  // ser de otro usuario que usó antes este navegador.
-  localStorage.removeItem(p.claves.refresh);
+  // La sesión se MUEVE, no se copia: el token de renovación pasa al portal de
+  // destino y se borra del de origen, así nunca lo usan dos apps a la vez
+  // (Supabase invalida la sesión si lo ve usado dos veces). Sin esto, la
+  // sesión del destino se caía al vencer el token de acceso (~1 hora). Si el
+  // destino tenía otro token de renovación (de otro usuario), se pisa.
+  const origen = PORTALES[PORTAL_ACTUAL].claves;
+  const refresh = localStorage.getItem(origen.refresh);
+  if (refresh) localStorage.setItem(p.claves.refresh, refresh); else localStorage.removeItem(p.claves.refresh);
+  localStorage.removeItem(origen.refresh);
   localStorage.setItem(p.claves.token, currentUser.token);
   localStorage.setItem(p.claves.email, currentUser.email);
   if (p.claves.uid) localStorage.setItem(p.claves.uid, uidDelToken(currentUser.token));
@@ -673,12 +677,25 @@ document.addEventListener('keydown', e => {
 const INACTIVIDAD_LIMITE_MS = 60 * 60 * 1000;
 const INACTIVIDAD_EVENTOS = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
 let _inactividadTimer = null, _inactividadUltimoReset = 0;
+// La última actividad se guarda en localStorage y se comparte entre TODAS las
+// pestañas y los tres portales (mismo origen): una pestaña olvidada no cierra
+// la sesión (que es la misma para todas) mientras se esté usando otra.
+const ACTIVIDAD_KEY = 'mega_ultima_actividad';
+function _inactividadVencer() {
+  let ultima = 0;
+  try { ultima = parseInt(localStorage.getItem(ACTIVIDAD_KEY)) || 0; } catch(e) {}
+  const restante = INACTIVIDAD_LIMITE_MS - (Date.now() - ultima);
+  if (restante > 5000) { _inactividadTimer = setTimeout(_inactividadVencer, restante); return; }
+  toast('Se cerró la sesión por inactividad (1 hora sin uso)', 'error');
+  doLogout();
+}
 function _resetTimerInactividad() {
   const ahora = Date.now();
   if (ahora - _inactividadUltimoReset < 5000) return;
   _inactividadUltimoReset = ahora;
+  try { localStorage.setItem(ACTIVIDAD_KEY, String(ahora)); } catch(e) {}
   if (_inactividadTimer) clearTimeout(_inactividadTimer);
-  _inactividadTimer = setTimeout(() => { toast('Se cerró la sesión por inactividad (1 hora sin uso)', 'error'); doLogout(); }, INACTIVIDAD_LIMITE_MS);
+  _inactividadTimer = setTimeout(_inactividadVencer, INACTIVIDAD_LIMITE_MS);
 }
 function iniciarTimerInactividad() {
   INACTIVIDAD_EVENTOS.forEach(ev => document.addEventListener(ev, _resetTimerInactividad, { passive: true }));
