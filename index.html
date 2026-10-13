@@ -932,6 +932,12 @@ async function cargarApp() {
   }
 }
 
+function tienePendienteAbono(c, pagos) {
+  return pagos
+    .filter(p => p.hoja === c.hoja && p.mes)
+    .some(p => { const a = evaluarPago(p, c).abono; return a === 'pendiente' || a === 'parcial'; });
+}
+
 function renderApp(usuario, contratos, pagos) {
   document.getElementById('loading').style.display = 'none';
   document.getElementById('content').style.display = 'block';
@@ -942,7 +948,13 @@ function renderApp(usuario, contratos, pagos) {
   }
   const nombre = (usuario.nombre || '').split(' ')[0];
   const vigentes = contratos.filter(c => estadoContrato(c) === 'vigente');
-  const finalizados = contratos.filter(c => estadoContrato(c) !== 'vigente');
+  // Los contratos vencidos o rescindidos solo se muestran mientras tengan algo
+  // pendiente de abono al propietario (cobrado al inquilino, aún sin abonar).
+  const finalizados = contratos.filter(c => estadoContrato(c) !== 'vigente' && tienePendienteAbono(c, pagos));
+  if (!vigentes.length && !finalizados.length) {
+    cont.innerHTML = `<div class="empty"><p>No tenés contratos vigentes ni abonos pendientes.</p></div>`;
+    return;
+  }
 
   let html = `
     <div class="welcome-card">
@@ -953,7 +965,7 @@ function renderApp(usuario, contratos, pagos) {
     </div>`;
   html += vigentes.map(c => renderContrato(c, pagos)).join('');
   if (finalizados.length) {
-    html += `<div class="section-title" style="margin-top:1.5rem;opacity:0.7">Contratos finalizados</div>`;
+    html += `<div class="section-title" style="margin-top:1.5rem;opacity:0.7">Contratos finalizados con abonos pendientes</div>`;
     html += finalizados.map(c => `<div style="opacity:0.8">${renderContrato(c, pagos)}</div>`).join('');
   }
   cont.innerHTML = html;
