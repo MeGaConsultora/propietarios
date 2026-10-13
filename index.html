@@ -878,7 +878,7 @@ function detalleNeto(p, c, miParte, multi) {
 function detalleHtml(d) {
   const filas = d.lineas.map(l => `<div class="det-linea"><span>${esc(l.label)}</span><span class="${l.monto < 0 ? 'neg' : ''}">${formatMoney(l.monto)}</span></div>`).join('');
   const nota = d.estimado
-    ? '<div class="det-nota">Estimado: todavía no se emitió la rendición de este mes. No incluye servicios que se rindan ni honorarios; el valor definitivo se confirma al rendir.</div>'
+    ? '<div class="det-nota">Estimado: todavía no se emitió la rendición de este mes; el valor definitivo se confirma al rendir.</div>'
     : '';
   return `<div class="det-box"><div class="det-titulo">Cómo se calcula</div>${filas}<div class="det-linea det-total"><span>Total a cobrar</span><span>${formatMoney(d.total)}</span></div>${nota}</div>`;
 }
